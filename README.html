@@ -1,0 +1,203 @@
+<html><head>
+<title>Page Title</title>
+</head>
+<body>
+
+<div><h1 id="systemprogrammierung-2-sysprog-2">Systemprogrammierung 2 (sysprog-2)</h1>
+<h2 id="einleitung">Einleitung</h2>
+<p>Diese Aufgabe folgt demselben Schema wie <code>sysprog-1</code> und soll den
+tieferen Umgang mit dem <code>/proc</code> Dateisystem vermitteln. Für
+nähere/einführende Details kann die Aufgabe <code>sysprog-1</code> verwendet werden.</p>
+<h2 id="abgabe">Abgabe</h2>
+<p>Im anschließenden Kapitel finden sich 2 Programmieraufgaben. Die
+Abgabemodalitäten sind identisch zu <code>sysprog-1</code>. Das Makefile kann
+<a href="/api/v1/assignment_files/132/Makefile">hier</a> heruntergeladen werden. Die
+verwendete Rust libc-Library wurde neu kompiliert und kann <a href="/api/v1/assignment_files/132/libc.rlib">hier</a>
+heruntergeladen werden.</p>
+<h2 id="ps">ps</h2>
+<ul>
+<li>Abzugebendes Programm: <code>ps.cpp</code></li>
+<li>Abzugebende Antwortdatei (siehe “Fragen”): <a href="/api/v1/assignment_files/132/ps.txt">ps.txt</a></li>
+<li>Erreichbare Punkte: <strong>10</strong></li>
+<li>Erreichbare Bonuspunkte bei Abgabe in Assembly: <strong>5</strong></li>
+</ul>
+<p>In dieser Aufgabe soll das <code>procfs</code> verwendet werden, um eine simple Variante
+des <code>ps</code> Linux-Tools nachzubauen. Es ist erlaubt sich dazu den Source Code von
+verschiedenen <code>ps</code> Implementierungen anzusehen, allerdings nicht erlaubt,
+diesen Code exakt zu kopieren (was in diesem Fall auch viel komplexer sein
+sollte, als den Code selbst zu schreiben). Alle notwendigen Informationen
+sollten sich in <code>man 5 proc</code> finden lassen.</p>
+<p>Wie das richtige <code>ps</code>, soll das Programm über alle Prozesse
+iterieren und dabei Informationen sammeln. Sollte man auf eine der relevanten
+Informationen nicht zugreifen können (e.g. <code>Permission denied</code> beim Öffnen
+einer relevanten Datei), soll der Prozess im Output ignoriert werden.
+Folgende Informationen sollen gesammelt und im JSON Format (siehe Beispiel)
+ausgegeben werden:</p>
+<ul>
+<li><strong>pid:</strong> Die PID des Prozesses</li>
+<li><strong>exe:</strong> Der Pfad zum Executable File des Prozesses</li>
+<li><strong>cwd:</strong> Das aktuelle Arbeitsverzeichnis des Prozesses</li>
+<li><strong>base_address:</strong> Die Basisadresse des Executable Files im Speicher (Dezimal)</li>
+<li><strong>state:</strong> Der aktuelle Prozessstatus</li>
+<li><strong>cmdline:</strong> Die vollständige Aufrufzeile des Prozesses, als Array</li>
+</ul>
+<h3 id="beispiel-output">Beispiel-Output</h3>
+<p><strong>Hinweis:</strong> Das Beispiel ist pretty-printed JSON. Grundsätzlich ist es egal
+wie das JSON ausgegeben wird, am besten sollte es komplett ohne Whitespace und
+Linebreaks ausgegeben werden. Zur Kontrolle kann der Output durch <code>jq</code>
+gepiped werden (<code>./ps | jq</code>), einem Commandline JSON Processor, welcher per
+Default pretty-printed JSON ausgibt. Der Grading-Server wird
+<code>jq 'sort_by(.pid)' --sort-keys</code> verwenden, um den JSON Output zu
+normalisieren.</p>
+<pre><code class="language-json">[
+  {
+    "pid": 841,
+    "exe": "/usr/lib/systemd/systemd",
+    "cwd": "/",
+    "base_address": 93990369611776,
+    "state": "S",
+    "cmdline": [
+      "/usr/lib/systemd/systemd",
+      "--user"
+    ]
+  },
+  {
+    "pid": 849,
+    "exe": "/usr/bin/bash",
+    "cwd": "/home/cluosh",
+    "base_address": 93883351433216,
+    "state": "S",
+    "cmdline": [
+      "/bin/sh",
+      "/usr/bin/startx",
+      "--",
+      "-keeptty"
+    ]
+  },
+ ...
+]
+</code></pre>
+<h3 id="erlaubte-syscalls">Erlaubte Syscalls</h3>
+<p>Die hervorgehobenen Syscalls sind üblicherweise für die minimale Funktionalität
+notwendig. Die übrigen Syscalls können vom Compiler generiert werden und
+sind erlaubt, aber nicht direkt notwendig.</p>
+<ul>
+<li><strong>getdents64</strong></li>
+<li><strong>openat</strong></li>
+<li><strong>readlink</strong></li>
+<li><strong>read</strong></li>
+<li><strong>write</strong></li>
+<li><strong>close</strong></li>
+<li><strong>exit</strong>/<strong>exit_group</strong></li>
+<li>newfstatat</li>
+<li>fstat</li>
+<li>futex</li>
+<li>fcntl</li>
+<li>stat</li>
+<li>lstat</li>
+<li>brk</li>
+</ul>
+<h3 id="fragen">Fragen</h3>
+<ul>
+<li>Welcher Syscall wird verwendet um durch ein Verzeichnis zu iterieren?</li>
+<li>Welche Datei im procfs Ordner eines Prozesses gibt Aufschluss auf die
+  Adressbereiche, die ein Prozess verwendet?</li>
+<li>Was bedeutet der Prozess-Status <strong>D</strong> (englische Bezeichnung aus <code>man ps</code>)?</li>
+</ul>
+<h2 id="pstree">pstree</h2>
+<ul>
+<li>Abzugebendes Programm: <code>pstree.cpp</code></li>
+<li>Abzugebende Antwortdatei (siehe “Fragen”): <a href="/api/v1/assignment_files/132/pstree.txt">pstree.txt</a></li>
+<li>Erreichbare Punkte: <strong>10</strong></li>
+<li>Erreichbare Bonuspunkte bei Abgabe in Assembly: <strong>5</strong></li>
+</ul>
+<p>Diese Aufgabe ist verwendet ähnliche Grundbausteine wie <code>ps</code> und man kann Code
+wiederverwenden. Es lohnt sich daher die <code>ps</code> Aufgabe zuerst zu machen, oder 
+als Anhaltspunkt zu verwenden.</p>
+<p>Prozesse können Child-Prozesse besitzen und das <code>pstree</code> Kommando erlaubt
+die Auflistung von Parent/Child-Prozessen in Baumform. In dieser Aufgabe
+sollen alle Prozesse und ihre Child-Prozesse hierarchisch aufgelistet werden,
+wieder mittels JSON output. Jede Node im Baum sollte folgende Informationen
+beinhalten:</p>
+<ul>
+<li><strong>pid:</strong> Die PID des Prozesses</li>
+<li><strong>name:</strong> Der Name des Prozesses</li>
+<li><strong>children:</strong> Array mit den Kindern des Prozesses</li>
+</ul>
+<h3 id="beispiel-output_1">Beispiel-Output</h3>
+<pre><code class="language-json">[
+  {
+    "pid": 1,
+    "name": "systemd",
+    "children": [
+      {
+        "pid": 413,
+        "name": "systemd-journal",
+        "children": []
+      },
+      {
+        "pid": 429,
+        "name": "systemd-udevd",
+        "children": []
+      },
+      {
+        "pid": 439,
+        "name": "systemd-network",
+        "children": []
+      },
+      ...
+    ]
+  }
+]
+</code></pre>
+<h3 id="erlaubte-syscalls_1">Erlaubte Syscalls</h3>
+<p>Die hervorgehobenen Syscalls sind üblicherweise für die minimale Funktionalität
+notwendig. Die übrigen Syscalls können vom Compiler generiert werden und
+sind erlaubt, aber nicht direkt notwendig.</p>
+<ul>
+<li><strong>getdents64</strong></li>
+<li><strong>openat</strong></li>
+<li><strong>read</strong></li>
+<li><strong>write</strong></li>
+<li><strong>close</strong></li>
+<li><strong>exit</strong>/<strong>exit_group</strong></li>
+<li>newfstatat</li>
+<li>fstat</li>
+<li>futex</li>
+<li>fcntl</li>
+<li>stat</li>
+<li>brk</li>
+</ul>
+<h3 id="fragen_1">Fragen</h3>
+<ul>
+<li>Wie wird der Parent-Prozess (fast) aller Prozesse unter Linux üblicherweise
+  genannt?</li>
+<li>Welche PID hat dieser Prozess?</li>
+</ul>
+<p>Zusätzlicher Denkanstoß (wird nicht bewertet): Gibt es Prozesse, die keine
+Nachfahren des gesuchten Prozesses sind? Welche?</p>
+<h2 id="antwort-datei-templates">Antwort-Datei Templates</h2>
+<p>Diese Templates können für die Beantwortung der Fragen verwendet werden:</p>
+<ul>
+<li><a href="/api/v1/assignment_files/132/ps.txt">ps.txt</a></li>
+<li><a href="/api/v1/assignment_files/132/pstree.txt">pstree.txt</a></li>
+</ul>
+<h2 id="punkteverteilung">Punkteverteilung</h2>
+<p>Insgesamt: <strong>20</strong> Punkte</p>
+<ul>
+<li><code>ps</code>: <strong>10</strong> Punkte</li>
+<li><code>pstree</code>: <strong>10</strong> Punkte</li>
+</ul>
+<h3 id="bonuspunkte">Bonuspunkte</h3>
+<p>Es gibt Bonuspunkte, wenn die abgegebenen Programme in Assembly
+geschrieben wurden. Insgesamt sind <strong>10</strong> Bonuspunkte erreichbar.</p>
+<ul>
+<li><code>ps</code>: <strong>5</strong> Bonuspunkte</li>
+<li><code>pstree</code>: <strong>5</strong> Bonuspunkte</li>
+</ul>
+<p>Mit normalen Punkten und Bonuspunkten sind somit insgesamt
+<strong>30</strong> Punkte erreichbar.</p></div><div><h2>Deliverables</h2><ul><li><div class="text-bold">ps.cpp</div> Source-Code für das ps-Programm.</li><li><div class="text-bold">ps.c</div> Source-Code für das ps-Programm (C).</li><li><div class="text-bold">ps.rs</div> Source-Code für das ps-Programm (Rust).</li><li><div class="text-bold">ps.S</div> Source-Code für das ps-Programm (x86_64 GNU Assembly).</li><li><div class="text-bold">ps.asm</div> Source-Code für das ps-Programm (NASM).</li><li><div class="text-bold">ps.txt</div> Beantwortung der Text-Fragen für das ps-Programm.</li><li><div class="text-bold">pstree.cpp</div> Source-Code für das pstree-Programm.</li><li><div class="text-bold">pstree.c</div> Source-Code für das pstree-Programm (C).</li><li><div class="text-bold">pstree.rs</div> Source-Code für das pstree-Programm (Rust).</li><li><div class="text-bold">pstree.S</div> Source-Code für das pstree-Programm (x86_64 GNU Assembly).</li><li><div class="text-bold">pstree.asm</div> Source-Code für das pstree-Programm (NASM).</li><li><div class="text-bold">pstree.txt</div> Beantwortung der Text-Fragen für das pstree-Programm.</li></ul></div>
+
+
+
+</body></html>
