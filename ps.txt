@@ -1,3 +1,4 @@
-1. getdents64
-2. /proc/<pid>/maps
-3. uninterruptible sleep
+
+getdents64
+/proc/<pid>/maps
+uninterruptible sleep
