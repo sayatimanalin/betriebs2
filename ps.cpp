@@ -1,130 +1,143 @@
-#include <dirent.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
+#include <iostream>
 #include <string>
 #include <vector>
-#include <string_view>
-#include <iostream>
+#include <fcntl.h>
+#include <cstring>
+#include <unistd.h>
+#include <cstdio>
+#include <dirent.h>
+#include <cstdlib>
+#include <sys/stat.h>
 #include <sstream>
+#include <string_view>
 
-// helper to read entire file into string
-static bool readFile(const std::string &path, std::string &out) {
-    int fd = open(path.c_str(), O_RDONLY);
-    if (fd < 0) return false;
-    char buf[4096];
-    ssize_t r;
-    out.clear();
-    while ((r = read(fd, buf, sizeof(buf))) > 0) {
-        out.append(buf, r);
-    }
-    close(fd);
-    return r >= 0;
-}
 
-// helper to read symlink
-static bool readLink(const std::string &path, std::string &out) {
-    char buf[4096];
-    ssize_t len = readlink(path.c_str(), buf, sizeof(buf)-1);
-    if (len < 0) return false;
-    buf[len] = '\0';
-    out.assign(buf);
-    return true;
-}
+using namespace std;
 
-static std::string jsonEscape(const std::string &s) {
-    std::string out;
+string clean(const string &s) {
+    string test;
     for (unsigned char c : s) {
         switch (c) {
-            case '\\': out += "\\\\"; break;
-            case '"': out += "\\\""; break;
-            case '\n': out += "\\n"; break;
-            case '\r': out += "\\r"; break;
-            case '\t': out += "\\t"; break;
+            case '\\': test+= "\\\\"; break;
+            case '\"': test+= "\\\""; break;
+            case '\n': test+= "\\n";  break;
+            case '\r': test+= "\\r";  break;
+            case '\t': test+= "\\t";  break;
             default:
                 if (c < 0x20) {
-                    char buf[7];
-                    std::snprintf(buf, sizeof(buf), "\\u%04x", c);
-                    out += buf;
-                } else {
-                    out += c;
-                }
+                    char tmp[7];
+                    snprintf(tmp, sizeof(tmp), "\\u%04x", c);
+                    test+= tmp;
+                } else test+= c;
         }
     }
-    return out;
+    return test;
 }
 
 int main() {
     DIR *proc = opendir("/proc");
     if (!proc) return 1;
-    std::vector<std::string> entries;
-    struct dirent *ent;
-    while ((ent = readdir(proc))) {
-        if (ent->d_type != DT_DIR && ent->d_type != DT_LNK && ent->d_type != DT_UNKNOWN)
+
+    vector<string> pids;
+    dirent *d;
+    while ((d = readdir(proc)) != nullptr) {
+
+        if (d->d_type != DT_DIR && d->d_type != DT_LNK && d->d_type != DT_UNKNOWN)
             continue;
-        const char *name = ent->d_name;
-        if (!*name) continue;
         char *endp;
-        long pid = strtol(name, &endp, 10);
-        if (*endp != '\0') continue; // not numeric
-        entries.emplace_back(name);
+        strtol(d->d_name, &endp, 10);
+        if (*endp == '\0') pids.emplace_back(d->d_name);
     }
     closedir(proc);
 
-    std::cout << "[";
-    bool first = true;
-    for (const std::string &pidStr : entries) {
-        std::string base = std::string("/proc/") + pidStr + "/";
-        std::string exe, cwd, maps, stat, cmdline;
-        if (!readLink(base + "exe", exe)) continue;
-        if (!readLink(base + "cwd", cwd)) continue;
-        if (!readFile(base + "maps", maps)) continue;
-        if (!readFile(base + "stat", stat)) continue;
-        if (!readFile(base + "cmdline", cmdline)) continue;
+    cout << "[";
+    bool firstOut = true;
 
-        std::istringstream mapsStream(maps);
-        std::string firstLine;
-        if (!std::getline(mapsStream, firstLine)) continue;
-        std::string addrStr = firstLine.substr(0, firstLine.find('-'));
-        unsigned long baseAddr = strtoul(addrStr.c_str(), nullptr, 16);
+    for (const string &pidStr : pids) {
+        string base = "/proc/" + pidStr + "/";
 
-        std::istringstream statStream(stat);
-        long pid; std::string comm; char state;
-        statStream >> pid >> comm >> state;
-        if (!statStream) continue;
+        char lbuf[4096];
+        ssize_t llen = readlink((base + "exe").c_str(), lbuf, sizeof(lbuf) - 1);
+        if (llen < 0) continue;
+        lbuf[llen] = '\0';
+        string exe(lbuf);
 
-        std::vector<std::string> args;
-        std::string current;
-        for (char c : cmdline) {
-            if (c == '\0') {
-                if (!current.empty()) {
-                    args.push_back(current);
-                    current.clear();
-                }
-            } else {
-                current += c;
-            }
+        llen = readlink((base + "cwd").c_str(), lbuf, sizeof(lbuf) - 1);
+        if (llen < 0) continue;
+        lbuf[llen] = '\0';
+        string cwd(lbuf);
+
+        string maps;
+        {
+            int fd = open((base + "maps").c_str(), O_RDONLY);
+            if (fd < 0) continue;
+            char buf[4096];
+            ssize_t r;
+            while ((r = read(fd, buf, sizeof(buf))) > 0) maps.append(buf, r);
+            close(fd);
+            if (r < 0) continue;
         }
-        if (!current.empty()) args.push_back(current);
 
-        if (!first) std::cout << ",";
-        first = false;
-        std::cout << "{\"pid\": " << pid
-                  << ", \"exe\": \"" << jsonEscape(exe) << "\""
-                  << ", \"cwd\": \"" << jsonEscape(cwd) << "\""
-                  << ", \"base_address\": " << baseAddr
-                  << ", \"state\": \"" << state << "\""
-                  << ", \"cmdline\": [";
+        string stat;
+        {
+            int fd = open((base + "stat").c_str(), O_RDONLY);
+            if (fd < 0) continue;
+            char buf[4096];
+            ssize_t r;
+            while ((r = read(fd, buf, sizeof(buf))) > 0) stat.append(buf, r);
+            close(fd);
+            if (r < 0) continue;
+        }
+
+        string cmdln;
+        {
+            int fd = open((base + "cmdline").c_str(), O_RDONLY);
+            if (fd < 0) continue;
+            char buf[4096];
+            ssize_t r;
+            while ((r = read(fd, buf, sizeof(buf))) > 0) cmdln.append(buf, r);
+            close(fd);
+            if (r < 0) continue;
+        }
+
+        istringstream mapsIn(maps);
+        string firstLine;
+        getline(mapsIn, firstLine);
+        size_t dash = firstLine.find('-');
+        unsigned long baseAddr = dash == string::npos ? 0
+                : strtoul(firstLine.substr(0, dash).c_str(), nullptr, 16);
+
+        istringstream statIn(stat);
+        long pid; string comm; char state;
+        statIn >> pid >> comm >> state;
+        if (!statIn) continue;
+
+        vector<string> args;
+        string cur;
+        for (char c : cmdln) {
+            if (c == '\0') { if (!cur.empty()) { args.push_back(cur); cur.clear(); } }
+            else cur += c;
+        }
+        if (!cur.empty()) args.push_back(cur);
+
+        if (!firstOut) cout << ",";
+        firstOut = false;
+
+
+        cout << "{"
+             << "\"pid\":" << pid << ","
+             << "\"exe\":\"" << clean(exe) << "\","
+             << "\"cwd\":\"" << clean(cwd) << "\","
+             << "\"base_address\":" << baseAddr << ","
+             << "\"state\":\"" << state << "\","
+             << "\"cmdline\":[";
         for (size_t i = 0; i < args.size(); ++i) {
-            if (i) std::cout << ",";
-            std::cout << "\"" << jsonEscape(args[i]) << "\"";
+            if (i) cout << ",";
+            cout << "\"" << clean(args[i]) << "\"";
         }
-        std::cout << "]}";
+        cout << "]}";
     }
-    std::cout << "]";
+
+    cout << "]";
     return 0;
 }
-
